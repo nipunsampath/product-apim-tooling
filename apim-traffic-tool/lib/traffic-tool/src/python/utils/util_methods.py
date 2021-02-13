@@ -16,10 +16,10 @@
 
 from datetime import datetime
 import os
-import requests
-import json
+import numpy as np
 
 abs_path = os.path.abspath(os.path.dirname(__file__))
+
 
 def log(filename, tag, write_string):
     """
@@ -29,7 +29,14 @@ def log(filename, tag, write_string):
     :param write_string: Message to be written
     :return: None
     """
-    
+
     with open('{}/../../../../../logs/{}'.format(abs_path, filename), 'a+') as log_file:
         log_file.write("[{}] ".format(tag) + str(datetime.now()) + ": " + write_string + "\n")
 
+
+def get_normal(mean, std):
+    x = np.random.normal(mean, std)
+    # return(x if x>=0 else PosNormal(mean,sigma))
+    while x <= 0:
+        x = np.random.normal(mean, std)
+    return x

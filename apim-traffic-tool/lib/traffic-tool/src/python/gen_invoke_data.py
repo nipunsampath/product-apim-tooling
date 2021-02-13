@@ -23,21 +23,19 @@ import sys
 import numpy as np
 import yaml
 from datetime import datetime
-from multiprocessing import Process, Value
+from multiprocessing import Process, Value, Lock
 from collections import defaultdict
-from utils import log
+from utils import log, util_methods
+from utils.entities import Config
 
 # variables
 logger = log.setLogger('gen_invoke_data')
 
-no_of_data_points = None
-heavy_traffic = None
-time_patterns = None
+configs: Config = Config()
 
 scenario_pool = {}
 process_pool = []
 current_data_points = Value('i', 0)
-script_start_time = None
 
 abs_path = os.path.abspath(os.path.dirname(__file__))
 
@@ -47,18 +45,18 @@ def loadConfig():
     This function will load and set the configuration data
     :return: None
     """
-    global no_of_data_points, heavy_traffic, time_patterns
+    global configs
 
     with open(abs_path + '/../../../../config/traffic-tool.yaml', 'r') as config_file:
         traffic_config = yaml.load(config_file, Loader=yaml.FullLoader)
 
-    no_of_data_points = int(traffic_config['tool_config']['no_of_data_points'])
-    heavy_traffic = str(traffic_config['tool_config']['heavy_traffic']).lower()
+    configs.no_of_data_points = int(traffic_config['tool_config']['no_of_data_points'])
+    configs.heavy_traffic = str(traffic_config['tool_config']['heavy_traffic']).lower()
 
     with open(abs_path + '/../../data/tool_data/invoke_patterns.yaml') as pattern_file:
         invoke_patterns = yaml.load(pattern_file, Loader=yaml.FullLoader)
 
-    time_patterns = process_time_patterns(invoke_patterns['time_patterns'])
+    configs.time_patterns = process_time_patterns(invoke_patterns['time_patterns'])
 
 
 def process_time_patterns(patterns: dict) -> defaultdict:
@@ -77,7 +75,7 @@ def process_time_patterns(patterns: dict) -> defaultdict:
     return processed_patterns
 
 
-def writeInvokeData(timestamp, path, access_token, method, user_ip, cookie, user_agent):
+def writeInvokeData(timestamp, path, access_token, method, user_ip, cookie, user_agent, dataset_file):
     """
     This function will write the invoke request data to a file
     :param timestamp: Timestamp of the request
@@ -87,33 +85,37 @@ def writeInvokeData(timestamp, path, access_token, method, user_ip, cookie, user
     :param user_ip: User IP of the request
     :param cookie: User cookie of the request
     :param user_agent: User agent of the request
+    :param dataset_file: path to the dataset file
     :return: None
     """
     accept = 'application/json'
     content_type = 'application/json'
     code = '200'
 
-    # user agent is wrapped around quotes because there are commas in the user agent and they clash with the commas in csv file
+    # user agent is wrapped around quotes because there are commas in the user agent and they clash with the commas
+    # in csv file
     write_string = str(
-        timestamp) + "," + user_ip + "," + access_token + "," + method + "," + path + "," + cookie + "," + accept + "," + content_type + "," + user_ip + ",\"" + user_agent + "\"," + str(code) + "\n"
+        timestamp) + "," + user_ip + "," + access_token + "," + method + "," + path + "," + cookie + "," + accept + "," + content_type + "," + user_ip + ",\"" + user_agent + "\"," + str(
+        code) + "\n"
 
-    with open(abs_path + '/../../../../dataset/generated-traffic/{}'.format(filename), 'a+') as dataset_file:
+    with open(abs_path + '/../../../../dataset/generated-traffic/{}'.format(dataset_file), 'a+') as dataset_file:
         dataset_file.write(write_string)
 
 
-def runInvoker(user_scenario, current_data_points):
+def runInvoker(user_scenario, total_data_point_count, configurations, lock):
     """
     This function will take a given invoke scenario and generate data for it.
     Supposed to be executed from a process.
     :param user_scenario: User scenario as a list
-    :param current_data_points: Current data point count
+    :param total_data_point_count: Current data point count
+    :param configurations: Configuration object 
     :return: None
     """
-    global no_of_data_points
 
     timestamp = datetime.now()
     appNames = list(user_scenario.keys())
     it = 0
+    scenario_req_count = 0
 
     while True:
         app_name = appNames[random.randint(0, len(appNames) - 1)]
@@ -145,7 +147,7 @@ def runInvoker(user_scenario, current_data_points):
         invoke_pattern_indices = np.random.choice(len(app_scenario_list), size=iterations, p=probability_list)
 
         for i in invoke_pattern_indices:
-            if current_data_points.value >= no_of_data_points:
+            if scenario_req_count >= configurations.no_of_data_points:
                 break
 
             scenario = app_scenario_list[i]
@@ -159,35 +161,38 @@ def runInvoker(user_scenario, current_data_points):
             # set time pattern if not set
             if time_pattern is None:
                 time_pattern = scenario[8]
-                time_pattern = time_patterns.get(time_pattern)
+                time_pattern = configurations.time_patterns.get(time_pattern)
+            lock.acquire()
+            writeInvokeData(timestamp, path, access_token, method, user_ip, cookie, user_agent,
+                            configurations.dataset_file)
+            total_data_point_count.value += 1
+            scenario_req_count += 1
+            lock.release()
 
-            writeInvokeData(timestamp, path, access_token, method, user_ip, cookie, user_agent)
-            current_data_points.value += 1
-
-            if heavy_traffic != 'true':
-                sleep_time = np.absolute(np.random.normal(time_pattern['mean'], time_pattern['std']))
+            if configurations.heavy_traffic != 'true':
+                sleep_time = util_methods.get_normal(time_pattern['mean'], time_pattern['std'])
                 timestamp += dt.timedelta(seconds=sleep_time)
             else:
                 timestamp += dt.timedelta(seconds=abs(int(np.random.normal())))
             it += 1
 
-        if current_data_points.value >= no_of_data_points:
+        if scenario_req_count >= configurations.no_of_data_points:
             break
-        else:
-            timestamp += dt.timedelta(seconds=abs(int(np.random.normal() * 10)))
 
 
-if __name__ == "__main__":
-    '''
+def main():
+    """
         Generate the dataset according to the scenario
         Usage: python3 gen_invoke_data.py filename
         output folder: dataset/generated-traffic/
-    '''
+    """
+
+    global scenario_pool, configs, current_data_points, abs_path, process_pool, logger
 
     parser = argparse.ArgumentParser("generate traffic data")
     parser.add_argument("filename", help="Enter a filename to write final output (without extension)", type=str)
     args = parser.parse_args()
-    filename = args.filename + ".csv"
+    configs.dataset_file = args.filename + ".csv"
 
     # load and set tool configurations
     try:
@@ -199,8 +204,9 @@ if __name__ == "__main__":
         logger.exception(str(e))
         sys.exit()
 
-    with open(abs_path + '/../../../../dataset/generated-traffic/{}'.format(filename), 'w') as file:
-        file.write("timestamp,ip_address,access_token,http_method,invoke_path,cookie,accept,content_type,x_forwarded_for,user_agent,response_code\n")
+    with open(abs_path + '/../../../../dataset/generated-traffic/{}'.format(configs.dataset_file), 'w') as file:
+        file.write("timestamp,ip_address,access_token,http_method,invoke_path,cookie,accept,content_type,"
+                   "x_forwarded_for,user_agent,response_code\n")
 
     try:
         # load and set the scenario pool
@@ -210,13 +216,13 @@ if __name__ == "__main__":
         sys.exit()
 
     # record script start_time
-    script_start_time = datetime.now()
+    configs.script_start_time = datetime.now()
 
     processes_list = []
-
+    lock = Lock()
     # create and start a process for each user
     for key_uname, val_scenario in scenario_pool.items():
-        process = Process(target=runInvoker, args=(val_scenario, current_data_points))
+        process = Process(target=runInvoker, args=(val_scenario, current_data_points, configs, lock))
         process.daemon = False
         processes_list.append(process)
         process.start()
@@ -226,15 +232,18 @@ if __name__ == "__main__":
 
     logger.info("Scenario loaded successfully. Wait until data generation complete!")
 
+    total_data_points = configs.no_of_data_points * len(processes_list)
     while True:
-        if current_data_points.value >= no_of_data_points:
+        if current_data_points.value >= total_data_points:
             for process in processes_list:
                 process.terminate()
             with open(abs_path + '/../../data/runtime_data/traffic_processes.pid', 'w') as file:
                 file.write('')
 
-            time_elapsed = datetime.now() - script_start_time
+            time_elapsed = datetime.now() - configs.script_start_time
             logger.info("Data generated successfully. Time elapsed: {} seconds".format(time_elapsed.seconds))
             break
-        else:
-            pass
+
+
+if __name__ == "__main__":
+    main()

@@ -37,11 +37,11 @@ def getNormal(mean, sd, lower, upper):
     This function will return a normal distribution bound to a given limit
     :param mean: mean of the distribution
     :param sd: standard deviation
-    :param mean: lower bound of the range
-    :param mean: upper bound of the range
+    :param lower: lower bound of the range
+    :param upper: upper bound of the range
     :return: normal distribution
     """
-    return truncnorm( (lower - mean) / sd, (upper - mean) / sd, loc=mean, scale=sd)
+    return truncnorm((lower - mean) / sd, (upper - mean) / sd, loc=mean, scale=sd)
 
 
 def genUserApps():
@@ -52,17 +52,15 @@ def genUserApps():
     """
     global no_of_users, app_list
 
-    app_usage = []
     no_of_apps = len(app_list)
-    mn = int(math.floor(no_of_apps/2))
-    user_data = None
+    mn = max(int(math.floor(no_of_apps / 2)), 1)
 
     with open(abs_path + '/../../data/scenario/user_details.yaml', 'r') as f:
         user_data = yaml.load(f, Loader=yaml.FullLoader)
     users = user_data['users']
 
     # calculate the number of apps each user is using (a normal distribution is used)
-    distribution = getNormal(mn-1, mn, 1, no_of_apps)
+    distribution = getNormal(mn - 1, mn, 1, no_of_apps)
     app_usage = distribution.rvs(no_of_users)
     app_usage = [int(round(num, 0)) for num in app_usage]
 
@@ -99,36 +97,34 @@ def genScenarioDistribution():
         app_user_count = len(app_list.get(app))
 
         # distribute users for each type based on request frequency
-        mn = int(math.floor((high_freq_upper-low_freq_lower)/2))
+        mn = int(math.floor((high_freq_upper - low_freq_lower) / 2))
 
         distribution = getNormal(mn, mn, low_freq_lower, high_freq_upper)
         user_frequencies = distribution.rvs(app_user_count)
         user_frequencies = [int(round(num, 0)) for num in user_frequencies]
 
         no_of_users_low_freq = len(list(fq for fq in user_frequencies if low_freq_lower <= fq < low_freq_upper))
-        no_of_users_medium_freq = len(list(fq for fq in user_frequencies if medium_freq_lower <= fq < medium_freq_upper))
+        no_of_users_medium_freq = len(
+            list(fq for fq in user_frequencies if medium_freq_lower <= fq < medium_freq_upper)
+        )
         no_of_users_high_freq = len(list(fq for fq in user_frequencies if high_freq_lower <= fq <= high_freq_upper))
 
         # generate scenario for low frequent category
-        if(no_of_users_low_freq != 0):
-            temp = {}
-            temp['app_name'] = app
-            temp['no_of_users'] = no_of_users_low_freq
-            temp['time_pattern'] = random.choice(time_patterns['low'].split(',')).strip()
+        if no_of_users_low_freq != 0:
+            temp = {'app_name': app, 'no_of_users': no_of_users_low_freq,
+                    'time_pattern': random.choice(time_patterns['low'].split(',')).strip()}
             api_calls = []
 
             for api in app_api_subs.get(app):
                 for resource in api_resources.get(api):
-                    temp_2 = {}
-                    temp_2['api'] = api
-                    temp_2['method'] = resource
+                    temp_2 = {'api': api, 'method': resource}
 
-                    mn = int(math.floor((low_freq_upper-low_freq_lower)/2))
+                    mn = int(math.floor((low_freq_upper - low_freq_lower) / 2))
                     distribution = getNormal(mn, mn, low_freq_lower, low_freq_upper)
                     no_of_reqs = int(distribution.rvs(1)[0])
 
                     if resource in ['POST', 'DELETE']:
-                        no_of_reqs = int(no_of_reqs/2)
+                        no_of_reqs = int(no_of_reqs / 2)
 
                     temp_2['no_of_requests'] = no_of_reqs
                     api_calls.append(temp_2)
@@ -137,25 +133,21 @@ def genScenarioDistribution():
             scenario_list.append(temp)
 
         # generate scenario for medium frequent category
-        if(no_of_users_medium_freq != 0):
-            temp = {}
-            temp['app_name'] = app
-            temp['no_of_users'] = no_of_users_medium_freq
-            temp['time_pattern'] = random.choice(time_patterns['medium'].split(',')).strip()
+        if no_of_users_medium_freq != 0:
+            temp = {'app_name': app, 'no_of_users': no_of_users_medium_freq,
+                    'time_pattern': random.choice(time_patterns['medium'].split(',')).strip()}
             api_calls = []
 
             for api in app_api_subs.get(app):
                 for resource in api_resources.get(api):
-                    temp_2 = {}
-                    temp_2['api'] = api
-                    temp_2['method'] = resource
+                    temp_2 = {'api': api, 'method': resource}
 
-                    mn = int(math.floor((medium_freq_upper-medium_freq_lower)/2))
+                    mn = int(math.floor((medium_freq_upper - medium_freq_lower) / 2))
                     distribution = getNormal(mn, mn, medium_freq_lower, medium_freq_upper)
                     no_of_reqs = int(distribution.rvs(1)[0])
 
                     if resource in ['POST', 'DELETE']:
-                        no_of_reqs = int(no_of_reqs/2)
+                        no_of_reqs = int(no_of_reqs / 2)
 
                     temp_2['no_of_requests'] = no_of_reqs
                     api_calls.append(temp_2)
@@ -164,25 +156,21 @@ def genScenarioDistribution():
             scenario_list.append(temp)
 
         # generate scenario for high frequent category
-        if(no_of_users_high_freq != 0):
-            temp = {}
-            temp['app_name'] = app
-            temp['no_of_users'] = no_of_users_high_freq
-            temp['time_pattern'] = random.choice(time_patterns['high'].split(',')).strip()
+        if no_of_users_high_freq != 0:
+            temp = {'app_name': app, 'no_of_users': no_of_users_high_freq,
+                    'time_pattern': random.choice(time_patterns['high'].split(',')).strip()}
             api_calls = []
 
             for api in app_api_subs.get(app):
                 for resource in api_resources.get(api):
-                    temp_2 = {}
-                    temp_2['api'] = api
-                    temp_2['method'] = resource
+                    temp_2 = {'api': api, 'method': resource}
 
-                    mn = int(math.floor((high_freq_upper-high_freq_lower)/2))
+                    mn = int(math.floor((high_freq_upper - high_freq_lower) / 2))
                     distribution = getNormal(mn, mn, high_freq_lower, high_freq_upper)
                     no_of_reqs = int(distribution.rvs(1)[0])
 
                     if resource in ['POST', 'DELETE']:
-                        no_of_reqs = int(no_of_reqs/2)
+                        no_of_reqs = int(no_of_reqs / 2)
 
                     temp_2['no_of_requests'] = no_of_reqs
                     api_calls.append(temp_2)
@@ -196,7 +184,8 @@ def genScenarioDistribution():
     logger.info('Invoke scenario generated successfully')
 
 
-if __name__ == "__main__":
+def main():
+    global abs_path, no_of_users, frequency_limits, time_patterns
     abs_path = os.path.abspath(os.path.dirname(__file__))
 
     # load and set variables from config files
@@ -231,5 +220,10 @@ if __name__ == "__main__":
     genUserApps()
     genScenarioDistribution()
 
-    out_txt = 'Invoke scenario generated successfully. Output written to \'user_details.yaml\' and \'invoke_scenario.yaml\' files'
+    out_txt = 'Invoke scenario generated successfully. Output written to \'user_details.yaml\' and ' \
+              '\'invoke_scenario.yaml\' files '
     logger.info(out_txt)
+
+
+if __name__ == "__main__":
+    main()
