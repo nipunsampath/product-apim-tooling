@@ -11,6 +11,7 @@ class Config:
         self.end_time = kwargs.get('end_time')
         self.max_connection_refuse_count = kwargs.get('max_connection_refuse_count')
         self.dataset_file = kwargs.get('dataset_file')
+        self.initial_timestamp = kwargs.get('initial_timestamp')
         # passing default value since the object is used in both generating traffic and invoking traffic
         self.script_runtime = kwargs.get('script_runtime', 0)
         self.no_of_data_points = kwargs.get('no_of_data_points', 0)

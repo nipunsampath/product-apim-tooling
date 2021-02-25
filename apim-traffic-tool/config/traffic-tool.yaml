@@ -25,6 +25,7 @@ tool_config:
   max_connection_refuse_count: 50
   no_of_data_points: 100000
   heavy_traffic: false
+  start_timestamp: 2020-12-03T20:56:35.450686Z    # ISO 8601 format
   frequency_limits:
     low:
       lower: 0

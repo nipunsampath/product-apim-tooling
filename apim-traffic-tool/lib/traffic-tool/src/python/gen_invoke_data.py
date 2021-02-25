@@ -52,6 +52,7 @@ def loadConfig():
 
     configs.no_of_data_points = int(traffic_config['tool_config']['no_of_data_points'])
     configs.heavy_traffic = str(traffic_config['tool_config']['heavy_traffic']).lower()
+    configs.initial_timestamp = traffic_config['tool_config']['start_timestamp']
 
     with open(abs_path + '/../../data/tool_data/invoke_patterns.yaml') as pattern_file:
         invoke_patterns = yaml.load(pattern_file, Loader=yaml.FullLoader)
@@ -62,15 +63,17 @@ def loadConfig():
 def process_time_patterns(patterns: dict) -> defaultdict:
     """
     Process time patterns to obtain mean and standard deviation to be used with distributions.
-    :param patterns: Patterns dictionary.
+    :param patterns: Patterns dictionary. format: {mean,std}
     :return: Dictionary with mean and std for each pattern.
     """
     processed_patterns = defaultdict()
 
     for key, pattern in patterns.items():
-        pattern = list(map(int, pattern.split(',')))
-        mean = np.mean(pattern)
-        std = np.std(pattern)
+        pattern = list(map(float, pattern.split(',')))
+        # mean = np.mean(pattern)
+        # std = np.std(pattern)
+        mean = pattern[0]
+        std = pattern[1]
         processed_patterns[key] = {'mean': mean, 'std': std}
     return processed_patterns
 
@@ -112,7 +115,7 @@ def runInvoker(user_scenario, total_data_point_count, configurations, lock):
     :return: None
     """
 
-    timestamp = datetime.now()
+    timestamp = configurations.initial_timestamp
     appNames = list(user_scenario.keys())
     it = 0
     scenario_req_count = 0
