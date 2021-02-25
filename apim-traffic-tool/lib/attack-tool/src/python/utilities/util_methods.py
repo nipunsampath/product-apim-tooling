@@ -68,7 +68,8 @@ def write_to_file(path, data, mode):
         file.write(data + "\n")
 
 
-def send_simple_request(request_path, method, token, ip, cookie, accept, content_type, user_agent, path_params=None, query_params=None, payload=None):
+def send_simple_request(request_path, method, token, ip, cookie, accept, content_type, user_agent, path_params=None,
+                        query_params=None, payload=None):
     """
     Sending a http request using the given parameters
     :param request_path: path used to send the request
@@ -190,8 +191,16 @@ def process_time_patterns(patterns: dict) -> defaultdict:
     processed_patterns = defaultdict()
 
     for key, pattern in patterns.items():
-        pattern = list(map(int, pattern.split(',')))
-        mean = np.mean(pattern)
-        std = np.std(pattern)
+        pattern = list(map(float, pattern.split(',')))
+        mean = pattern[0]
+        std = pattern[1]
         processed_patterns[key] = {'mean': mean, 'std': std}
     return processed_patterns
+
+
+def get_normal(mean, std):
+    x = np.random.normal(mean, std)
+    # return(x if x>=0 else PosNormal(mean,sigma))
+    while x <= 0:
+        x = np.random.normal(mean, std)
+    return x

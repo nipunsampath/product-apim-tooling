@@ -29,6 +29,10 @@ COMPROMISED_USER_COUNT = 'compromised_user_count'
 STOLEN_TOKEN = 'stolen_token'
 ATTACKS = 'attacks'
 TIME_PATTERNS = 'time_patterns'
+START_TIME = 'start_time'
+START_TIMESTAMP = 'start_timestamp'
+NO_OF_DATA_POINTS = 'no_of_data_points'
+DATASET_PATH = 'dataset_path'
 
 # token_ip_cookie csv headers
 API_NAME = 'api_name'

@@ -15,6 +15,7 @@
 # under the License.
 import random
 from collections import defaultdict
+from constants import *
 
 
 # To store user details
@@ -44,3 +45,20 @@ class API:
 
     def set_single_user(self):
         self.single_user = random.choice(self.users)
+
+
+class Config:
+    def __init__(self, **kwargs):
+        self.protocol = kwargs.get(PROTOCOL)
+        self.ip = kwargs.get(IP)
+        self.port = kwargs.get(PORT)
+        self.time_patterns = kwargs.get(TIME_PATTERNS)
+        self.start_time = kwargs.get(START_TIME)
+        self.payloads: list = kwargs.get(PAYLOADS)
+        self.user_agents: list = kwargs.get(USER_AGENTS)
+        self.start_timestamp = kwargs.get(START_TIMESTAMP)
+        self.compromised_user_count = kwargs.get(COMPROMISED_USER_COUNT)
+        self.dataset_path = kwargs.get(DATASET_PATH)
+        # passing default value since the object is used in both generating traffic and invoking traffic
+        self.attack_duration = kwargs.get(ATTACK_DURATION, 0)
+        self.no_of_data_points = kwargs.get(NO_OF_DATA_POINTS, 0)
